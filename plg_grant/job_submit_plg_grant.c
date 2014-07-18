@@ -1,7 +1,5 @@
 /*****************************************************************************\
- *  job_submit_job_saint.c - Check if job submit request is sain.
- *****************************************************************************
-Author: Marcin Stolarek (Interdycyplinary Center for Mathematical 
+Author: Dominik Bartkiewicz (Interdycyplinary Center for Mathematical 
   and Computational Modeling. University of Warsaw)
 \*****************************************************************************/
 
