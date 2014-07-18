@@ -343,6 +343,7 @@ extern int job_modify(struct job_descriptor *job_desc,
           struct job_record *job_ptr, uint32_t submit_uid)
 {
   /*
+	job_modify
   */
   info( "plg_grant: job_modify");
   char plg_part_prefix[]="plgrid";
