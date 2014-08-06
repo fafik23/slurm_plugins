@@ -105,7 +105,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
   LDAP              *ld_handle   = NULL;
   LDAPMessage       *e=NULL, *result = NULL;
   char              *ldap_uri = "ldap://149.156.10.32:29413";
-  //char              *ldap_uri = "ldap://192.168.69.30";
+  //char              *ldap_uri = "ldap://192.168.69.110";
   char              *ldap_base = "dc=icm,dc=plgrid,dc=pl";
   char              *ldap_filtr = NULL;
   char              *ldap_dn = NULL;
@@ -130,16 +130,17 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
        job_desc->name, job_desc->partition, job_desc->qos,
        submit_uid, job_desc->time_limit, job_desc->user_id,
        job_desc->pn_min_memory  );
-  /*
-        if(job_desc->partition == NULL)  {
+
+  if(job_desc->partition == NULL)  {
+    error( "plg_grant: Error No partition");
     return SLURM_ERROR;
-        }
+  }
   if (strncmp(job_desc->partition,plg_part_prefix,6)!=0)  
     return SLURM_SUCCESS;
 
   if(submit_uid==0)
     return SLURM_SUCCESS;
-        */
+
   pw = getpwuid (submit_uid);
   if (!pw) {
     error( "plg_grant: Error looking up uid=%u in /etc/passwd",submit_uid);
@@ -236,7 +237,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
         val=v[0];
         info("plg_grant: account : %s is %s", job_desc->account, val->bv_val);
         if (strcmp(val->bv_val,"ACTIVE")!=0){
-          msg=xstrdup("Grant specified with this ID (ID_grantu) does not exist or is inactive. Job has been rejected.");
+          msg=xstrdup("Grant specified with this ID (ID_grantu) is not yet active or has expired. Job has been rejected.");
           ret=ESLURM_INVALID_ACCOUNT;
           goto fail_plg;
         }
@@ -307,7 +308,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
     } else {
       error( "plg_grant: 0 entry");
       ret=ESLURM_INVALID_ACCOUNT;
-      msg=xstrdup("Grant specified with this ID (ID_grantu) does not exist or is inactive. Job has been rejected.");
+      msg=xstrdup("Grant specified with this ID (ID_grantu) does not exist. Job has been rejected.");
       goto fail_plg;
     }
   }
