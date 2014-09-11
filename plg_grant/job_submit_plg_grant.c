@@ -143,7 +143,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
 
   pw = getpwuid (submit_uid);
   if (!pw) {
-    error( "plg_grant: Error looking up uid=%u in /etc/passwd",submit_uid);
+    error( "plg_grant: Error looking up uid=%u in getpwuid",submit_uid);
     ret=ESLURM_USER_ID_MISSING;
     goto fail_plg;
   }
@@ -166,9 +166,6 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
       goto fail_plg;
     }
     sprintf(ldap_filtr,"(&(objectClass=plgridOrgPerson)(uid=%s))",pw->pw_name);
-    //TMP
-    sprintf(ldap_filtr,"(&(objectClass=plgridOrgPerson)(uid=plgana))");
-    //TMP
 
     if(ldap_timeout.tv_sec > 0) {
       rc = ldap_search_st( ld_handle, ldap_base, LDAP_SCOPE_SUBTREE, ldap_filtr, ldap_attrs, 0, &ldap_timeout ,&result );
