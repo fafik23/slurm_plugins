@@ -104,8 +104,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
   char              *grant_uid = NULL;
   LDAP              *ld_handle   = NULL;
   LDAPMessage       *e=NULL, *result = NULL;
-  char              *ldap_uri = "ldap://149.156.10.32:29413";
-  //char              *ldap_uri = "ldap://192.168.69.110";
+  char              *ldap_uri = "ldap://192.168.69.110";
   char              *ldap_base = "dc=icm,dc=plgrid,dc=pl";
   char              *ldap_filtr = NULL;
   char              *ldap_dn = NULL;
@@ -233,7 +232,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
       if ( v[0]!=NULL ) {
         val=v[0];
         info("plg_grant: account : %s is %s", job_desc->account, val->bv_val);
-        if (strcmp(val->bv_val,"ACTIVE")!=0){
+        if (strcmp(val->bv_val,"AGREED")!=0){
           msg=xstrdup("Grant specified with this ID (ID_grantu) is not yet active or has expired. Job has been rejected.");
           ret=ESLURM_INVALID_ACCOUNT;
           goto fail_plg;
@@ -323,7 +322,6 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
     v=NULL;
     if( result ) ldap_msgfree( result );
     result=NULL;
-    info( "plg_grant: test %p",v);
     if (ld_handle) ldap_unbind_s(ld_handle);
 
     if (msg) {
