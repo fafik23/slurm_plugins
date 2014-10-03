@@ -232,7 +232,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
       if ( v[0]!=NULL ) {
         val=v[0];
         info("plg_grant: account : %s is %s", job_desc->account, val->bv_val);
-        if (strcmp(val->bv_val,"AGREED")!=0){
+        if (strcmp(val->bv_val,"ACTIVE")!=0){
           msg=xstrdup("Grant specified with this ID (ID_grantu) is not yet active or has expired. Job has been rejected.");
           ret=ESLURM_INVALID_ACCOUNT;
           goto fail_plg;
@@ -244,13 +244,10 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
       //Check user is allowed to use account//
       v = ldap_get_values_len(ld_handle, e, "plgridGrantType");
 
-      if( result ) ldap_msgfree( result );
-      result =NULL;
-
       if ( v[0]!=NULL ) {
         val=v[0];
         info("plg_grant: account : %s type is %s", job_desc->account, val->bv_val);
-        if (strcmp(val->bv_val,"personal")==0){
+        if (strcmp(val->bv_val,"basic")==0){
           if ( (ldap_dn = ldap_get_dn( ld_handle, e )) != NULL ) {
             info("plg_grant: LDAP dn: %s", ldap_dn );
             if ( (grant_uid = (char *) xmalloc((strlen(",uid=,") + strlen(pw->pw_name) + 1) * sizeof(char))) == NULL ) {
@@ -276,6 +273,9 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
              goto fail_plg;
           }
         } else { //Granty Wlaciwe
+          if( result ) ldap_msgfree( result );
+          result =NULL;
+
           if ( (ldap_filtr = (char *) xmalloc((strlen("(&(objectClass=plgridGroup)(plgridGrantID=)(memberUid=))") + strlen(job_desc->account) + strlen(pw->pw_name) + 1) * sizeof(char))) == NULL ) {
             error( "plg_grant: Memory could not be allocated for ldap_filtr");
             goto fail_plg;
