@@ -109,6 +109,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
   char              *ldap_filtr = NULL;
   char              *ldap_dn = NULL;
   static char       *msg = NULL;
+  char              *msg_str = NULL;
   char         *a = NULL ;
   char        *ldap_attrs[]={"plgridDefaultGrantID","plgridOLAStatus","plgridGrantType",NULL};
   BerElement   *ber = NULL;
@@ -233,7 +234,14 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
         val=v[0];
         info("plg_grant: account : %s is %s", job_desc->account, val->bv_val);
         if (strcmp(val->bv_val,"ACTIVE")!=0){
-          msg=xstrdup("Grant specified with this ID (ID_grantu) is not yet active or has expired. Job has been rejected.");
+          info("plg_grant: Grant %s have plgridOLAStatus= %s", job_desc->account, val->bv_val );
+          if ( (msg_str = (char *) xmalloc((strlen("Grant specified with this ID () is not yet active or has expired. Job has been rejected.") + strlen(job_desc->account) + 1) * sizeof(char))) == NULL ) {
+            error( "plg_grant: Memory could not be allocated for msg_str");
+            goto fail_plg;
+          }
+          sprintf(msg_str,"Grant specified with this ID (%s) is not yet active or has expired. Job has been rejected.",job_desc->account);
+          msg=xstrdup(msg_str);
+          xfreer(msg_str);
           ret=ESLURM_INVALID_ACCOUNT;
           goto fail_plg;
         }
@@ -261,7 +269,13 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
               grant_uid = NULL;
               ldap_memfree( ldap_dn );
               ldap_dn =NULL;
-              msg=xstrdup("You are not a member of group allowed to use this grant ID (ID_grantu). Job has been rejected.'");
+              if ( (msg_str = (char *) xmalloc((strlen("You are not a member of group allowed to use this grant ID (). Job has been rejected.") + strlen(job_desc->account) + 1) * sizeof(char))) == NULL ) {
+                error( "plg_grant: Memory could not be allocated for msg_str");
+                goto fail_plg;
+              }
+              sprintf(msg_str,"You are not a member of group allowed to use this grant ID (%s). Job has been rejected.",job_desc->account);
+              msg=xstrdup(msg_str);
+              xfreer(msg_str);
               ret=ESLURM_INVALID_ACCOUNT;
               goto fail_plg;
             }
@@ -295,7 +309,13 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
           }         
           if( ldap_count_entries( ld_handle, result ) < 1 ) {
             error( "plg_grant: Uid no in grant group");
-            msg=xstrdup("You are not a member of group allowed to use this grant ID (ID_grantu). Job has been rejected.'");
+            if ( (msg_str = (char *) xmalloc((strlen("You are not a member of group allowed to use this grant ID (). Job has been rejected.") + strlen(job_desc->account) + 1) * sizeof(char))) == NULL ) {
+              error( "plg_grant: Memory could not be allocated for msg_str");
+              goto fail_plg;
+            }
+            sprintf(msg_str,"You are not a member of group allowed to use this grant ID (%s). Job has been rejected.",job_desc->account);
+            msg=xstrdup(msg_str);
+            xfree(msg_str);
             ret=ESLURM_INVALID_ACCOUNT;
             goto fail_plg;
           }
@@ -304,7 +324,13 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
     } else {
       error( "plg_grant: 0 entry");
       ret=ESLURM_INVALID_ACCOUNT;
-      msg=xstrdup("Grant specified with this ID (ID_grantu) does not exist. Job has been rejected.");
+      if ( (msg_str = (char *) xmalloc((strlen("Grant specified with this ID () does not exist. Job has been rejected.") + strlen(job_desc->account) + 1) * sizeof(char))) == NULL ) {
+        error( "plg_grant: Memory could not be allocated for msg_str");
+        goto fail_plg;
+      }
+      sprintf(msg_str,"Grant specified with this ID (%s) does not exist. Job has been rejected.",job_desc->account);
+      msg=xstrdup(msg_str);
+      xfree(msg_str);
       goto fail_plg;
     }
   }
