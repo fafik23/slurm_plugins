@@ -241,7 +241,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
           }
           sprintf(msg_str,"Grant specified with this ID (%s) is not yet active or has expired. Job has been rejected.",job_desc->account);
           msg=xstrdup(msg_str);
-          xfreer(msg_str);
+          xfree(msg_str);
           ret=ESLURM_INVALID_ACCOUNT;
           goto fail_plg;
         }
@@ -275,7 +275,7 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
               }
               sprintf(msg_str,"You are not a member of group allowed to use this grant ID (%s). Job has been rejected.",job_desc->account);
               msg=xstrdup(msg_str);
-              xfreer(msg_str);
+              xfree(msg_str);
               ret=ESLURM_INVALID_ACCOUNT;
               goto fail_plg;
             }
