@@ -46,7 +46,7 @@ int slurm_spank_init (spank_t sp, int ac, char **av)
 
     slurm_verbose("socker: chroot to /icm/hydra/home/admins/bart/X" );
     if (chroot("/icm/hydra/home/admins/bart/X") < 0) {
-        slurm_error ("socker: Error unshare CLONE_NEWNS: %m");
+        slurm_error ("socker: chroot err");
         return (-1);
     }
 
