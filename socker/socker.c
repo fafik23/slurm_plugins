@@ -38,11 +38,13 @@ int slurm_spank_init (spank_t sp, int ac, char **av)
         return (0);
     }
 
+    slurm_verbose("socker: unsher CLONE_NEWNS|CLONE_NEWPID" );
     if (unshare (CLONE_NEWNS|CLONE_NEWPID) < 0) {
         slurm_error ("socker: Error unshare CLONE_NEWNS: %m");
         return (-1);
     }
 
+    slurm_verbose("socker: chroot to /icm/hydra/home/admins/bart/X" );
     if (chroot("/icm/hydra/home/admins/bart/X") < 0) {
         slurm_error ("socker: Error unshare CLONE_NEWNS: %m");
         return (-1);
