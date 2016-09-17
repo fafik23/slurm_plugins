@@ -147,11 +147,15 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
     ret=ESLURM_USER_ID_MISSING;
     goto fail_plg;
   }
+  else
+	debug("plg_grant: Looking up uid=%u OK");
   //ldap_initialize//
   if (ldap_initialize(&ld_handle, ldap_uri) != LDAP_SUCCESS ) {
     error( "plg_grant: job_submit: no handle to LDAP server  %s ", ldap_uri);
     goto fail_plg;
   }
+  else
+	debug("plg_grant: ldap_initialize OK");
   int version = LDAP_VERSION3;
   ldap_set_option( ld_handle, LDAP_OPT_PROTOCOL_VERSION, &version );
   rc = ldap_simple_bind_s(ld_handle, NULL, NULL);
@@ -159,6 +163,8 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
     error( "plg_grant: Error binding to ldap server with ldap_simple_bind_s(%s,NULL,NULL) ->%s", ldap_uri,ldap_err2string(rc));
     goto fail_plg;
   }
+  else
+	debug("plg_grant: ldap_simple_bind_s OK");
   //Set account from plgridDefaultGrantID//
   if(job_desc->account == NULL)  {
     if ( (ldap_filtr = (char *) xmalloc((strlen("(&(objectClass=plgridOrgPerson)(uid=))") + strlen(pw->pw_name) + 1) * sizeof(char))) == NULL ) {
@@ -185,6 +191,15 @@ extern int job_submit(struct job_descriptor *job_desc, uint32_t submit_uid,
       }
 
       v = ldap_get_values_len(ld_handle, e, "plgridDefaultGrantID");
+      if ( v == NULL )
+      {
+	error("plg_grant: User doesn't have default grant and account not specified (was looking for plgridDefaultGrantID)");
+        msg=xstrdup("Slurm was unable to find your default plgrid account and none was specified with -A option.");
+        xfree(msg_str);
+	ret=ESLURM_INVALID_ACCOUNT;
+	goto fail_plg;
+      }
+	
       if ( v[0]!=NULL ) {
         val=v[0];
         job_desc->account=xstrndup(val->bv_val,val->bv_len);
