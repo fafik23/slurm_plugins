@@ -1,0 +1,128 @@
+#!/bin/bash 
+exec >> /var/log/prolog.log
+exec 2>> /var/log/prolog.log
+
+function logging {
+	echo $@   | logger  -t "prologue[${SLURM_JOB_ID}]"
+}
+
+
+START_TIME=$(date +%s.%N)
+
+date
+
+PATH=/usr/local/slurm/current/bin/:$PATH
+
+#Sprawdzenie czy dla filesystemu /tmp wlaczona jest quota
+TMP_DISK=`awk '/\/tmp/  && /usrquota/ { sub(/\!/,"/", $1); print $1}' /proc/mounts`
+
+#######################
+#PREPARING LLS_SCRATCH#
+#######################
+#GETTING SPECIFIED TMP SIZE
+TMP_SIZE=`scontrol -o show job ${SLURM_JOB_ID} | awk 'BEGIN{RS=" "}  /MinTmpDiskNode/ {split($0,job_MinTmpDiskNode,"="); print job_MinTmpDiskNode[2]; exit 0}'`
+#SETTING DEFAULT TMP_SIZE TO 1GB#
+if [ "x$TMP_SIZE" == "x" ]
+then
+	TMP_SIZE=1
+else
+	echo $TMP_SIZE |grep -q G
+	if [ $? -eq 0 ]
+	then
+		TMP_SIZE=$(echo $TMP_SIZE | sed  's/G//g')
+                echo TMP_SIZE=$TMP_SIZE
+	else
+		TMP_SIZE=$(echo $TMP_SIZE | sed  's/M//g')
+        	echo TMP_SIZE=$TMP_SIZE
+		if [ $TMP_SIZE -lt 1000 ]
+		then
+			TMP_SIZE=1
+		else
+			TMP_SIZE=$[ $TMP_SIZE / 1000  + 1]
+		fi
+	fi
+	
+fi
+
+
+LUSTRE_MOUNTED=`grep "/mnt/lustre" /proc/mounts| wc -l`
+TMPLOCAL_DISK=`awk '/\/mnt\/tmp_local/   { sub(/\!/,"/", $1);print $1}' /proc/mounts`
+LLS_NFS=`awk '/\/mnt\/scratch/   { sub(/\!/,"/", $1);split($1,a,":");print a[1]}' /proc/mounts`
+#LLS2_NFS=`awk '/\/mnt\/lls2/   { sub(/\!/,"/", $1);split($1,a,":");print a[1]}' /proc/mounts`
+
+logging "LLS_NFS=$LLS_NFS"
+ping -c1 -w 1 -q $LLS_NFS > /dev/null
+LLS_NFS_PING=$?
+
+#SETTING DEFAULT LOCATION FOR LLS_SCRATCH
+ROOT_LLS=/tmp
+JOB_LLS=${ROOT_LLS}/lls_${SLURM_JOB_ID} 
+LLS_FILE=${SLURM_JOB_ID}_`hostname -s`
+if [ -n "${TMPLOCAL_DISK}" ]
+then
+	BACKEND_LLS=/mnt/tmp_local/$LLS_FILE
+	logging "Use $TMPLOCAL_DISK for LLS, "
+elif [ -n $LLS_NFS ] &&  [ ${LLS_NFS_PING} -eq 0 ]
+then
+	BACKEND_LLS=/mnt/scratch/lls/$LLS_FILE
+	logging "Use $LLS_NFS for LLS, "
+else
+	logging "No dev/fs for LLS, draining node"
+	scontrol update node=$(hostname -s) state=drain reason="prologue: No dev/fs for LLS"
+	exit 1
+fi
+
+echo BACKEND_LLS is $BACKEND_LLS
+
+
+if [ -n "${TMP_SIZE}" ]
+then
+  logging "Starting LLS Creating"
+  logging `date `
+  dd if=/dev/zero of=$BACKEND_LLS bs=1M count=0 seek=${TMP_SIZE}k
+  if [ $? -ne 0 ]
+  then
+        echo "Creating $BACKEND_LLS failed, draining node"
+        scontrol update node=$(hostname -s) state=drain reason="prologue: lls file creation failed"
+  fi
+
+
+  #/usr/sbin/lctl blockdev_attach /mnt/lustre/scratch/${SLURM_JOB_ID}_`hostname -s` /dev/lls${SLURM_JOB_ID}
+  LOOPDEVNUM=$(/sbin/losetup -f | sed 's#/dev/loop##')
+  mknod /dev/loop${LOOPDEVNUM} b 7 ${LOOPDEVNUM}
+  mknod /dev/loop$((${LOOPDEVNUM}+1)) b 7 $((${LOOPDEVNUM}+1))
+  /sbin/losetup -f $BACKEND_LLS 
+  if [ $? -ne 0 ]
+  then
+	logging "Creating loop device failed, draining node";
+	scontrol update node=$(hostname -s) state=drain reason="prologue: out of loops"
+	exit 1
+  fi
+
+  LLS_LOOP=`/sbin/losetup -a | grep $LLS_FILE |awk -F ":" '{print $1}'`
+  echo BACKEND_LLS=$BACKEND_LLS
+  echo LLS_LOOP=$LLS_LOOP
+#	  time /sbin/mkfs.ext4 -E 'lazy_itable_init=1,stride=256' -O ^has_journal -m0  $LLS_LOOP
+  time /sbin/mkfs.ext4 -E 'lazy_itable_init=1,stride=16' -O ^has_journal -m0  $LLS_LOOP
+
+  mkdir $JOB_LLS
+  if [ $? -ne 0 ]
+  then
+	logging "Unable to create directory in $JOB_LLS, draining node"
+	scontrol update node=$(hostname -s) state=drain reason="prologue: Unable to create directory in $JOB_LLS"
+  fi
+  logging "mounting  $LLS_LOOP in  $JOB_LLS"
+  mount ${LLS_LOOP} ${JOB_LLS}
+  chown $SLURM_JOB_USER $JOB_LLS
+  chmod 700 $JOB_LLS
+
+  date
+  logging "LLS Created"
+
+fi
+
+env  > /var/log/env.log
+
+END_TIME=$(date +%s.%N)
+logging SlurmPrologue for job $SLURM_JOB_ID took  $(echo "$END_TIME - $START_TIME" | bc) seconds
+exit 0

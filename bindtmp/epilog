@@ -1,0 +1,90 @@
+#!/bin/bash
+
+exec >> /var/log/epilog.log
+exec 2>> /var/log/epilog.log
+
+function logging {
+	echo $@   | logger  -t "epilogue[${SLURM_JOB_ID}]"
+}
+
+START_TIME=$(date +%s.%N)
+
+PATH=/usr/local/slurm/current/bin/:$PATH
+
+logging "PWD=$PWD"
+logging "Changing PWD to /" 
+cd / | logging
+
+TMP_DISK=`awk '/\/tmp/  && /usrquota/ { sub(/\!/,"/", $1); print $1}' /proc/mounts`
+logging "TMP_DISK=$TMP_DISK"
+SCRATCH_DISK=`awk '/\/mnt\/scratch/  && /usrquota/ { sub(/\!/,"/", $1);print $1}' /proc/mounts`
+logging "SCRATCH_DISK=$SCRATCH_DISK"
+TMP_SIZE=`scontrol -o show job ${SLURM_JOB_ID} | awk 'BEGIN{RS=" "}  /MinTmpDiskNode/ {split($0,job_MinTmpDiskNode,"="); print job_MinTmpDiskNode[2]}'`
+logging "TMP_SIZE=$TMP_SIZE"
+#LLS_DISK=`grep lls_${SLURM_JOB_ID} /proc/*/mounts |awk ' { print $1}'`
+#LLS_DISK=`grep -h lls_${SLURM_JOB_ID} /proc/*/mounts |head -1| awk ' { print $1}'`
+LLS_DISK=`/sbin/losetup| grep ${SLURM_JOB_ID} | awk ' { print $1}'`
+logging "LLS_DISK=$LLS_DISK"
+JOB_LLS=/tmp/lls_${SLURM_JOB_ID}
+logging "JOB_LLS=$JOB_LLS"
+LLS_BACKEND=`/sbin/losetup ${LLS_DISK} |sed 's/.*(\|)//g'`
+logging "LLS_BACKEND=$LLS_BACKEND"
+
+######################remove LLS########################
+echo "Going to remove $JOB_LLS"
+if [ -d $JOB_LLS ]
+then
+  logging unmounting directory from:  ${JOB_LLS}
+  umount ${JOB_LLS}
+  if [ -b ${LLS_DISK} ]
+  then
+    logging "removing loop from: ${LLS_DISK}" 
+    /sbin/losetup -d ${LLS_DISK} | logging
+	if [ $? -ne 0 ]
+	then
+		logging "Checking lsof ${LLS_DISK}"
+		/usr/sbin/lsof ${LLS_DISK} | logging
+		sleep 5s
+	        /sbin/losetup -d ${LLS_DISK} | logging
+	fi
+    logging "removing backend file: ${LLS_BACKEND}"
+    rm ${LLS_BACKEND}
+  fi
+  logging "removing scratch directory: ${JOB_LLS}"
+  rm -r ${JOB_LLS}
+fi
+logging "LLS DELETION FINISHED"
+
+
+
+#######################remove poor men scratch###########################3
+rm -rf  /mnt/scratch/${SLURM_JOB_USER}_${SLURM_JOB_ID} 
+rm -rf  /mnt/scratch/${SLURM_JOB_ID} 
+
+
+#if [  ${SLURM_JOB_UID} -ne 0 ] 
+#then
+######## remove QUOTA /mnt/scratch tmp  #############
+##  if [ ${TMP_SIZE} == "0" ] && [ -b ${SCRATCH_DISK} ] 
+##  then
+##    /usr/local/sbin/quotatool -u ${SLURM_JOB_USER} -bq -100M  -l -100M /mnt/scratch 
+##  elif [ -b ${SCRATCH_DISK} ]
+##  then
+##    /usr/local/sbin/quotatool -u ${SLURM_JOB_USER} -bq -${TMP_SIZE}  -l -${TMP_SIZE} /mnt/scratch
+##  fi
+########QUOTA /tmp  #############
+#  if [ "x${TMP_DISK}"!="x"  ] && [ -b ${TMP_DISK} ]
+#    then
+#    /usr/local/sbin/quotatool -u ${SLURM_JOB_USER} -bq -100M  -l -100M /tmp | logging
+#  fi
+#fi
+
+
+
+###Clear caches after job
+#echo 3 > /proc/sys/vm/drop_caches
+
+
+END_TIME=$(date +%s.%N)
+logging SlurmEpilogue for job $SLURM_JOB_ID took  $(echo "$END_TIME - $START_TIME" | bc) seconds
+exit 0
